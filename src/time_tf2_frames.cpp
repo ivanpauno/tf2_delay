@@ -7,11 +7,39 @@
 #include <tf2/time.h>
 #include <tf2_ros/transform_listener.h>
 
+template<typename TimeRepT = int64_t, typename TimeT = std::milli>
+void
+spin_for(
+  rclcpp::executors::SingleThreadedExecutor & exec,
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base,
+  std::chrono::duration<TimeRepT, TimeT> duration)
+{
+  exec.add_node(node_base, false);
+  auto start = std::chrono::system_clock::now();
+  auto time_point = start;
+  do {
+    exec.spin_some(start + duration - time_point);
+    time_point = std::chrono::system_clock::now();
+  } while (start + duration > time_point);
+  exec.remove_node(node_base, false);
+}
+
+template<typename NodeLikeT, typename TimeRepT = int64_t, typename TimeT = std::milli>
+void
+spin_for(NodeLikeT && node, std::chrono::duration<TimeRepT, TimeT> duration)
+{
+  rclcpp::executors::SingleThreadedExecutor exec;
+  spin_for(
+    exec,
+    rclcpp::node_interfaces::get_node_base_interface(std::forward<NodeLikeT>(node)),
+    duration);
+}
+
+using namespace std::chrono_literals;
+
 /** This node will just keep making TF requests at the current time and log
     how long of a delay there is before messages actually arrive.
 */
-
-
 int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
@@ -34,7 +62,7 @@ int main(int argc, char * argv[])
   tf2::TimePoint time;
   while(rclcpp::ok())
   {
-    rclcpp::spin_some(nh);
+    spin_for(nh, 50ms);
 
     if (!waiting) // Try the current time, otherwise keep trying the old time that failed
       time = tf2_ros::fromRclcpp(nh->get_clock()->now());
@@ -50,6 +78,8 @@ int main(int argc, char * argv[])
         RCLCPP_INFO(nh->get_logger(),
                     "T=%s TF Arrival delay = %lf!", s.c_str(), tf2::durationToSec(timeDiff));
         waiting = false;
+      } else {
+        fprintf(stderr, "okey, no delay\n");
       }
     }
     catch (const tf2::ExtrapolationException& ex) {
