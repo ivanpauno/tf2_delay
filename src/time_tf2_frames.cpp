@@ -40,7 +40,7 @@ int main(int argc, char * argv[])
       time = tf2_ros::fromRclcpp(nh->get_clock()->now());
 
     try {
-      xform = tfListenerBuffer.lookupTransform("foo", "bar", time);
+      xform = tfListenerBuffer.lookupTransform("right_wheel", "chassis", time);
 
       if (waiting) // Record how long the delay was
       {
@@ -57,19 +57,22 @@ int main(int argc, char * argv[])
       std::string errorMsg = ex.what();
       if (errorMsg.find("earliest data is at time") != std::string::npos)
       {
-        //RCLCPP_ERROR(nh->get_logger(),
-        //            "T=%s %s  Data too early error!!", s.c_str(), ex.what());
+        RCLCPP_ERROR(nh->get_logger(),
+                   "T=%s %s  Data too early error!!", s.c_str(), ex.what());
       }
       else // Should be the "interpolate into the future" error
       {
-        //RCLCPP_ERROR(nh->get_logger(),
-        //            "T=%s %s  Will wait and see how long the data takes to arrive!", s.c_str(), ex.what());
+        RCLCPP_ERROR(nh->get_logger(),
+                   "T=%s %s  Will wait and see how long the data takes to arrive!", s.c_str(), ex.what());
         waiting = true;
       }
     }
     catch (const tf2::TransformException& ex) {
       std::string s = tf2::displayTimePoint(tf2_ros::fromRclcpp(nh->get_clock()->now()));
       RCLCPP_ERROR(nh->get_logger(), "T=%s %s  Unknown error!", s.c_str(), ex.what());
+    }
+    catch (...) {
+      RCLCPP_ERROR(nh->get_logger(), "another error");
     }
 
     rate.sleep();
